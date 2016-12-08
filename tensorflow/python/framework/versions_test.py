@@ -1,4 +1,4 @@
-# Copyright 2015 Google Inc. All Rights Reserved.
+# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import tensorflow.python.platform
-
 import tensorflow as tf
 
 
@@ -27,8 +25,10 @@ class VersionTest(tf.test.TestCase):
 
   def testVersion(self):
     self.assertEqual(type(tf.__version__), str)
+    self.assertEqual(type(tf.VERSION), str)
     # This pattern will need to grow as we include alpha, builds, etc.
-    self.assertRegexpMatches(tf.__version__, r'^\d+\.\d+\.\d+$')
+    self.assertRegexpMatches(tf.__version__, r'^\d+\.\d+\.(\d+(\-\w+)?|head)$')
+    self.assertRegexpMatches(tf.VERSION, r'^\d+\.\d+\.(\d+(\-\w+)?|head)$')
 
   def testGraphDefVersion(self):
     version = tf.GRAPH_DEF_VERSION
@@ -40,6 +40,11 @@ class VersionTest(tf.test.TestCase):
     self.assertLessEqual(0, min_producer)
     self.assertLessEqual(min_producer, version)
 
+  def testGitAndCompilerVersion(self):
+    self.assertEqual(type(tf.__git_version__), str)
+    self.assertEqual(type(tf.__compiler_version__), str)
+    self.assertEqual(type(tf.GIT_VERSION), str)
+    self.assertEqual(type(tf.COMPILER_VERSION), str)
 
 if __name__ == "__main__":
   tf.test.main()

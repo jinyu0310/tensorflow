@@ -1,4 +1,4 @@
-/* Copyright 2015 Google Inc. All Rights Reserved.
+/* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ namespace tensorflow {
 class ResizeBilinearOpTest : public OpsTestBase {
  protected:
   ResizeBilinearOpTest() {
-    RequireDefaultOps();
     TF_EXPECT_OK(NodeDefBuilder("resize_bilinear_op", "ResizeBilinear")
                      .Input(FakeInput(DT_FLOAT))
                      .Input(FakeInput(DT_INT32))
@@ -45,7 +44,6 @@ class ResizeBilinearOpTest : public OpsTestBase {
 class ResizeBilinearOpAlignCornersTest : public OpsTestBase {
  protected:
   ResizeBilinearOpAlignCornersTest() {
-    RequireDefaultOps();
     TF_EXPECT_OK(NodeDefBuilder("resize_bilinear_op", "ResizeBilinear")
                      .Input(FakeInput(DT_FLOAT))
                      .Input(FakeInput(DT_INT32))
@@ -97,9 +95,10 @@ TEST_F(ResizeBilinearOpTest, TestBilinear2x2To3x3) {
 
   // clang-format off
   test::FillValues<float>(&expected,
-    {1,     5.0/3,   2,
-     7.0/3, 3,       10.0/3,
-     3,     11.0/3,  4});
+    {1,        5.0f / 3,  2,
+     7.0f / 3, 3,         10.0f / 3,
+     3,        11.0f / 3, 4});
+
 
   // clang-format on
   test::ExpectTensorEqual<float>(expected, *GetOutput(0));
@@ -208,9 +207,9 @@ TEST_F(ResizeBilinearOpTest, TestBilinear4x4To3x3) {
 
   // clang-format off
   test::FillValues<float>(&expected,
-    {1,       7.0/3, 11.0/3,
-     19.0/3, 23.0/3, 27.0/3,
-     35.0/3, 39.0/3, 43.0/3});
+    {1,        7.0f/3, 11.0f/3,
+     19.0f/3, 23.0f/3, 27.0f/3,
+     35.0f/3, 39.0f/3, 43.0f/3});
 
   // clang-format on
   test::ExpectTensorEqual<float>(expected, *GetOutput(0));
@@ -253,8 +252,8 @@ TEST_F(ResizeBilinearOpTest, TestBilinear2x2To3x3Batch2) {
   Tensor expected(allocator(), DT_FLOAT, TensorShape({2, 3, 3, 1}));
   // clang-format off
   test::FillValues<float>(&expected,
-    {1, 5.0/3, 2, 7.0/3, 3, 10.0/3, 3, 11.0/3, 4,
-     1, 5.0/3, 2, 7.0/3, 3, 10.0/3, 3, 11.0/3, 4
+    {1, 5.0f/3, 2, 7.0f/3, 3, 10.0f/3, 3, 11.0f/3, 4,
+     1, 5.0f/3, 2, 7.0f/3, 3, 10.0f/3, 3, 11.0f/3, 4
     });
   // clang-format on
   test::ExpectTensorEqual<float>(expected, *GetOutput(0));
@@ -270,15 +269,15 @@ TEST_F(ResizeBilinearOpTest, TestBilinear2x2x2To3x3x2) {
   // clang-format off
   test::FillValues<float>(&expected,
     {
-      1,      -1,
-      5.0/3,  -5.0/3,
-      2,      -2,
-      7.0/3,  -7.0/3,
-      3,      -3,
-      10.0/3, -10.0/3,
-      3,      -3,
-      11.0/3, -11.0/3,
-      4,      -4
+      1,       -1,
+      5.0f/3,  -5.0f/3,
+      2,       -2,
+      7.0f/3,  -7.0f/3,
+      3,       -3,
+      10.0f/3, -10.0f/3,
+      3,       -3,
+      11.0f/3, -11.0f/3,
+      4,       -4
     });
   // clang-format on
   test::ExpectTensorEqual<float>(expected, *GetOutput(0));

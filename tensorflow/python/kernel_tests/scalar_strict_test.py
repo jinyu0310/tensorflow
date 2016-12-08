@@ -1,4 +1,4 @@
-# Copyright 2015 Google Inc. All Rights Reserved.
+# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
-import tensorflow.python.platform
 
 import numpy as np
 import tensorflow as tf
@@ -67,7 +65,7 @@ class ScalarStrictTest(tf.test.TestCase):
 
   def testConcat(self):
     self.check(tf.concat, ([0], ([2], [3], [7])),
-               'Concat dim tensor should be a scalar integer', [2, 3, 7])
+               'axis tensor should be a scalar integer', [2, 3, 7])
     for data in (2, 3, 7), (2, [3], 7), (2, 3, [7]):
       self.check(tf.concat, (0, data),
                  r'Expected \w+ dimensions in the range \[0, 0\)', [2, 3, 7])
@@ -78,9 +76,6 @@ class ScalarStrictTest(tf.test.TestCase):
   def testFill(self):
     self.check(tf.fill, (2, 3), 'dims must be a vector', [3, 3])
     self.check(tf.fill, ([2], [3]), 'value must be a scalar', [3, 3])
-
-  def testAssert(self):
-    self.check(tf.Assert, ([True], (7,)), 'should be a scalar', None)
 
   def testPad(self):
     self.check(tf.pad, (7, [[1, 2]]),
@@ -120,17 +115,6 @@ class ScalarStrictTest(tf.test.TestCase):
   def testSparseToDense(self):
     self.check(tf.sparse_to_dense, (1, 4, 7),
                'output_shape should be a vector', [0, 7, 0, 0])
-
-  def testImageSummary(self):
-    image = np.zeros((2, 2, 2, 3), dtype=np.uint8)
-    self.check(tf.image_summary, (['img'], image), 'Tags must be a scalar')
-
-  def testScalarSummary(self):
-    self.check(tf.scalar_summary, (['a'], 7), 'not the same shape')
-    self.check(tf.scalar_summary, ('a', [7]), 'not the same shape')
-
-  def testHistogramSummary(self):
-    self.check(tf.histogram_summary, (['a'], 7), 'tags must be scalar')
 
   def testTile(self):
     self.check(tf.tile, ([7], 2), 'Expected multiples to be 1-D', [7, 7])
