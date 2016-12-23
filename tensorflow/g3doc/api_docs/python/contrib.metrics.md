@@ -906,8 +906,8 @@ If `weights` is `None`, weights default to 1. Use weights of 0 to mask values.
 ##### Returns:
 
 
-*  <b>`mean_distance`</b>: A `Tensor` representing the current mean, the value of `total`
-    divided by `count`.
+*  <b>`mean_distance`</b>: A `Tensor` representing the current mean, the value of
+    `total` divided by `count`.
 *  <b>`update_op`</b>: An operation that increments the `total` and `count` variables
     appropriately.
 
@@ -1087,13 +1087,16 @@ If `weights` is `None`, weights default to 1. Use weights of 0 to mask values.
 
 Computes precision@k of the predictions with respect to sparse labels.
 
+If `class_id` is not specified, we calculate precision as the ratio of true
+    positives (i.e., correct predictions, items in the top `k` highest
+    `predictions` that are found in the corresponding row in `labels`) to
+    positives (all top `k` `predictions`).
 If `class_id` is specified, we calculate precision by considering only the
-    entries in the batch for which `class_id` is in the top-k highest
+    rows in the batch for which `class_id` is in the top `k` highest
     `predictions`, and computing the fraction of them for which `class_id` is
-    indeed a correct label.
-If `class_id` is not specified, we'll calculate precision as how often on
-    average a class among the top-k classes with the highest predicted values
-    of a batch entry is correct and can be found in the label for that entry.
+    in the corresponding row in `labels`.
+
+We expect precision to decrease as `k` increases.
 
 `streaming_sparse_precision_at_k` creates two local variables,
 `true_positive_at_<k>` and `false_positive_at_<k>`, that are used to compute
@@ -1162,13 +1165,16 @@ If `weights` is `None`, weights default to 1. Use weights of 0 to mask values.
 
 Computes precision@k of top-k predictions with respect to sparse labels.
 
+If `class_id` is not specified, we calculate precision as the ratio of
+    true positives (i.e., correct predictions, items in `top_k_predictions`
+    that are found in the corresponding row in `labels`) to positives (all
+    `top_k_predictions`).
 If `class_id` is specified, we calculate precision by considering only the
-    entries in the batch for which `class_id` is in the top-k highest
+    rows in the batch for which `class_id` is in the top `k` highest
     `predictions`, and computing the fraction of them for which `class_id` is
-    indeed a correct label.
-If `class_id` is not specified, we'll calculate precision as how often on
-    average a class among the top-k classes with the highest predicted values
-    of a batch entry is correct and can be found in the label for that entry.
+    in the corresponding row in `labels`.
+
+We expect precision to decrease as `k` increases.
 
 `streaming_sparse_precision_at_top_k` creates two local variables,
 `true_positive_at_k` and `false_positive_at_k`, that are used to compute
@@ -1235,12 +1241,14 @@ If `weights` is `None`, weights default to 1. Use weights of 0 to mask values.
 
 Computes recall@k of the predictions with respect to sparse labels.
 
-If `class_id` is specified, we calculate recall by considering only the
-    entries in the batch for which `class_id` is in the label, and computing
-    the fraction of them for which `class_id` is in the top-k `predictions`.
-If `class_id` is not specified, we'll calculate recall as how often on
-    average a class among the labels of a batch entry is in the top-k
-    `predictions`.
+If `class_id` is not specified, we'll calculate recall as the ratio of true
+    positives (i.e., correct predictions, items in the top `k` highest
+    `predictions` that are found in the corresponding row in `labels`) to
+    actual positives (the full `labels` row).
+If `class_id` is specified, we calculate recall by considering only the rows
+    in the batch for which `class_id` is in `labels`, and computing the
+    fraction of them for which `class_id` is in the corresponding row in
+    `labels`.
 
 `streaming_sparse_recall_at_k` creates two local variables,
 `true_positive_at_<k>` and `false_negative_at_<k>`, that are used to compute
@@ -1718,22 +1726,62 @@ Compute set difference of elements in last dimension of `a` and `b`.
 
 All but the last dimension of `a` and `b` must match.
 
+Example:
+
+```python
+  a = [
+    [
+      [
+        [1, 2],
+        [3],
+      ],
+      [
+        [4],
+        [5, 6],
+      ],
+    ],
+  ]
+  b = [
+    [
+      [
+        [1, 3],
+        [2],
+      ],
+      [
+        [4, 5],
+        [5, 6, 7, 8],
+      ],
+    ],
+  ]
+  set_difference(a, b, aminusb=True) = [
+    [
+      [
+        [2],
+        [3],
+      ],
+      [
+        [],
+        [],
+      ],
+    ],
+  ]
+```
+
 ##### Args:
 
 
 *  <b>`a`</b>: `Tensor` or `SparseTensor` of the same type as `b`. If sparse, indices
       must be sorted in row-major order.
-*  <b>`b`</b>: `Tensor` or `SparseTensor` of the same type as `a`. Must be
-      `SparseTensor` if `a` is `SparseTensor`. If sparse, indices must be
-      sorted in row-major order.
+*  <b>`b`</b>: `Tensor` or `SparseTensor` of the same type as `a`. If sparse, indices
+      must be sorted in row-major order.
 *  <b>`aminusb`</b>: Whether to subtract `b` from `a`, vs vice versa.
 *  <b>`validate_indices`</b>: Whether to validate the order and range of sparse indices
      in `a` and `b`.
 
 ##### Returns:
 
-  A `SparseTensor` with the same rank as `a` and `b`, and all but the last
-  dimension the same. Elements along the last dimension contain the
+  A `SparseTensor` whose shape is the same rank as `a` and `b`, and all but
+  the last dimension the same. Elements along the last dimension contain the
   differences.
 
 
@@ -1745,21 +1793,61 @@ Compute set intersection of elements in last dimension of `a` and `b`.
 
 All but the last dimension of `a` and `b` must match.
 
+Example:
+
+```python
+  a = [
+    [
+      [
+        [1, 2],
+        [3],
+      ],
+      [
+        [4],
+        [5, 6],
+      ],
+    ],
+  ]
+  b = [
+    [
+      [
+        [1, 3],
+        [2],
+      ],
+      [
+        [4, 5],
+        [5, 6, 7, 8],
+      ],
+    ],
+  ]
+  set_intersection(a, b) = [
+    [
+      [
+        [1],
+        [],
+      ],
+      [
+        [4],
+        [5, 6],
+      ],
+    ],
+  ]
+```
+
 ##### Args:
 
 
 *  <b>`a`</b>: `Tensor` or `SparseTensor` of the same type as `b`. If sparse, indices
       must be sorted in row-major order.
-*  <b>`b`</b>: `Tensor` or `SparseTensor` of the same type as `a`. Must be
-      `SparseTensor` if `a` is `SparseTensor`. If sparse, indices must be
-      sorted in row-major order.
+*  <b>`b`</b>: `Tensor` or `SparseTensor` of the same type as `a`. If sparse, indices
+      must be sorted in row-major order.
 *  <b>`validate_indices`</b>: Whether to validate the order and range of sparse indices
      in `a` and `b`.
 
 ##### Returns:
 
-  A `SparseTensor` with the same rank as `a` and `b`, and all but the last
-  dimension the same. Elements along the last dimension contain the
+  A `SparseTensor` whose shape is the same rank as `a` and `b`, and all but
+  the last dimension the same. Elements along the last dimension contain the
   intersections.
 
 
@@ -1796,21 +1884,61 @@ Compute set union of elements in last dimension of `a` and `b`.
 
 All but the last dimension of `a` and `b` must match.
 
+Example:
+
+```python
+  a = [
+    [
+      [
+        [1, 2],
+        [3],
+      ],
+      [
+        [4],
+        [5, 6],
+      ],
+    ],
+  ]
+  b = [
+    [
+      [
+        [1, 3],
+        [2],
+      ],
+      [
+        [4, 5],
+        [5, 6, 7, 8],
+      ],
+    ],
+  ]
+  set_union(a, b) = [
+    [
+      [
+        [1, 2, 3],
+        [2, 3],
+      ],
+      [
+        [4, 5],
+        [5, 6, 7, 8],
+      ],
+    ],
+  ]
+```
+
 ##### Args:
 
 
 *  <b>`a`</b>: `Tensor` or `SparseTensor` of the same type as `b`. If sparse, indices
       must be sorted in row-major order.
-*  <b>`b`</b>: `Tensor` or `SparseTensor` of the same type as `a`. Must be
-      `SparseTensor` if `a` is `SparseTensor`. If sparse, indices must be
-      sorted in row-major order.
+*  <b>`b`</b>: `Tensor` or `SparseTensor` of the same type as `a`. If sparse, indices
+      must be sorted in row-major order.
 *  <b>`validate_indices`</b>: Whether to validate the order and range of sparse indices
      in `a` and `b`.
 
 ##### Returns:
 
-  A `SparseTensor` with the same rank as `a` and `b`, and all but the last
-  dimension the same. Elements along the last dimension contain the
+  A `SparseTensor` whose shape is the same rank as `a` and `b`, and all but
+  the last dimension the same. Elements along the last dimension contain the
   unions.
 
 

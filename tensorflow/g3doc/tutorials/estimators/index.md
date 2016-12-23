@@ -106,8 +106,6 @@ import urllib
 
 import numpy as np
 import tensorflow as tf
-
-tf.logging.set_verbosity(tf.logging.INFO)
 ```
 
 Then define flags to allow users to optionally specify CSV files for training,
@@ -152,6 +150,8 @@ def maybe_download():
     print("Training data is downloaded to %s" % train_file_name)
 
   if FLAGS.test_data:
+    test_file_name = FLAGS.test_data
+  else:
     test_file = tempfile.NamedTemporaryFile(delete=False)
     urllib.urlretrieve("http://download.tensorflow.org/data/abalone_test.csv", test_file.name)
     test_file_name = test_file.name

@@ -112,14 +112,22 @@ def if_not_windows(a):
       "//conditions:default": a,
   })
 
+def if_x86(a):
+  return select({
+      "//tensorflow:linux_x86_64": a,
+      "//tensorflow:windows": a,
+      "//conditions:default": [],
+  })
+
 # LINT.IfChange
 def tf_copts():
   return (["-DEIGEN_AVOID_STL_ARRAY",
            "-Iexternal/gemmlowp",
            "-Wno-sign-compare",
-           "-fno-exceptions"] +
+           "-fno-exceptions",] +
           if_cuda(["-DGOOGLE_CUDA=1"]) +
           if_android_arm(["-mfpu=neon"]) +
+          if_x86(["-msse4.1"]) +
           select({
               "//tensorflow:android": [
                   "-std=c++11",
@@ -225,12 +233,14 @@ def tf_gen_op_wrappers_cc(name,
   native.cc_library(name=name,
                     srcs=subsrcs,
                     hdrs=subhdrs,
-                    deps=deps + [
+                    deps=deps + if_not_android([
                         "//tensorflow/core:core_cpu",
                         "//tensorflow/core:framework",
                         "//tensorflow/core:lib",
                         "//tensorflow/core:protos_all_cc",
-                    ],
+                    ]) + if_android([
+                        "//tensorflow/core:android_tensorflow_lib",
+                    ]),
                     copts=tf_copts(),
                     alwayslink=1,
                     visibility=visibility)
@@ -342,7 +352,7 @@ def tf_cuda_cc_test(name, srcs, deps, tags=[], data=[], size="medium",
              args=args)
 
 # Create a cc_test for each of the tensorflow tests listed in "tests"
-def tf_cc_tests(srcs, deps, linkstatic=0, tags=[], size="medium",
+def tf_cc_tests(srcs, deps, name='', linkstatic=0, tags=[], size="medium",
                 args=None, linkopts=[]):
   for src in srcs:
     tf_cc_test(
@@ -355,12 +365,12 @@ def tf_cc_tests(srcs, deps, linkstatic=0, tags=[], size="medium",
         args=args,
         linkopts=linkopts)
 
-def tf_cc_tests_gpu(srcs, deps, linkstatic=0, tags=[], size="medium",
+def tf_cc_tests_gpu(srcs, deps, name='', linkstatic=0, tags=[], size="medium",
                     args=None):
   tf_cc_tests(srcs, deps, linkstatic, tags=tags, size=size, args=args)
 
 
-def tf_cuda_cc_tests(srcs, deps, tags=[], size="medium", linkstatic=0,
+def tf_cuda_cc_tests(srcs, deps, name='', tags=[], size="medium", linkstatic=0,
                      args=None, linkopts=[]):
   for src in srcs:
     tf_cuda_cc_test(
@@ -529,6 +539,7 @@ def _py_wrap_cc_impl(ctx):
   for dep in ctx.attr.deps:
     inputs += dep.cc.transitive_headers
   inputs += ctx.files._swiglib
+  inputs += ctx.files.toolchain_deps
   swig_include_dirs = set(_get_repository_roots(ctx, inputs))
   swig_include_dirs += sorted([f.dirname for f in ctx.files._swiglib])
   args = ["-c++",
@@ -562,6 +573,9 @@ _py_wrap_cc = rule(
         "deps": attr.label_list(
             allow_files = True,
             providers = ["cc"],
+        ),
+        "toolchain_deps": attr.label_list(
+            allow_files = True,
         ),
         "module_name": attr.string(mandatory = True),
         "py_module_name": attr.string(mandatory = True),
@@ -753,6 +767,7 @@ def tf_py_wrap_cc(name, srcs, swig_includes=[], deps=[], copts=[], **kwargs):
               srcs=srcs,
               swig_includes=swig_includes,
               deps=deps + extra_deps,
+              toolchain_deps=["//tools/defaults:crosstool"],
               module_name=module_name,
               py_module_name=name)
   extra_linkopts = select({
@@ -925,3 +940,8 @@ def tf_version_info_genrule():
       local = 1,
       tools = ["//tensorflow/tools/git:gen_git_source.py"],
   )
+
+def cc_library_with_android_deps(deps, android_deps=[],
+                                common_deps=[], **kwargs):
+  deps = if_not_android(deps) + if_android(android_deps) + common_deps
+  native.cc_library(deps=deps, **kwargs)

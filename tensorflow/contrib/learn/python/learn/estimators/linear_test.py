@@ -265,8 +265,9 @@ class LinearClassifierTest(tf.test.TestCase):
     def _my_metric_op(predictions, labels):
       # For the case of binary classification, the 2nd column of "predictions"
       # denotes the model predictions.
-      predictions = tf.slice(predictions, [0, 1], [-1, 1])
-      return tf.reduce_sum(tf.mul(predictions, labels))
+      predictions = tf.strided_slice(
+          predictions, [0, 1], [-1, 2], end_mask=1)
+      return tf.reduce_sum(tf.multiply(predictions, labels))
 
     classifier = tf.contrib.learn.LinearClassifier(
         feature_columns=[tf.contrib.layers.real_valued_column('x')])
@@ -1038,7 +1039,7 @@ class LinearRegressorTest(tf.test.TestCase):
       return features, labels
 
     def _my_metric_op(predictions, labels):
-      return tf.reduce_sum(tf.mul(predictions, labels))
+      return tf.reduce_sum(tf.multiply(predictions, labels))
 
     regressor = tf.contrib.learn.LinearRegressor(
         feature_columns=[tf.contrib.layers.real_valued_column('x')],
@@ -1253,7 +1254,7 @@ class LinearRegressorTest(tf.test.TestCase):
           'country': tf.SparseTensor(
               values=['IT', 'US', 'GB'],
               indices=[[0, 0], [1, 3], [2, 1]],
-              shape=[3, 5]),
+              dense_shape=[3, 5]),
           'weights': tf.constant([[3.0], [5.0], [7.0]])
       }, tf.constant([[1.55], [-1.25], [-3.0]])
 
@@ -1285,7 +1286,7 @@ class LinearRegressorTest(tf.test.TestCase):
           'country': tf.SparseTensor(
               values=['IT', 'US', 'GB'],
               indices=[[0, 0], [1, 3], [2, 1]],
-              shape=[3, 5]),
+              dense_shape=[3, 5]),
           'weights': tf.constant([[10.0], [10.0], [10.0]])
       }, tf.constant([[1.4], [-0.8], [2.6]])
 

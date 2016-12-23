@@ -29,6 +29,7 @@ from tensorflow.python.debug.cli import analyzer_cli
 from tensorflow.python.debug.cli import cli_shared
 from tensorflow.python.debug.cli import curses_ui
 from tensorflow.python.debug.cli import debugger_cli_common
+from tensorflow.python.debug.cli import stepper_cli
 from tensorflow.python.debug.wrappers import framework
 
 
@@ -315,39 +316,8 @@ class LocalCLIDebugWrapperSession(framework.BaseDebugWrapperSession):
         self._init_command = "lt -f %s" % passed_filter
         self._title_color = "red_on_white"
 
-    analyzer = analyzer_cli.DebugAnalyzer(debug_dump)
-
-    # Supply all the available tensor filters.
-    for filter_name in self._tensor_filters:
-      analyzer.add_tensor_filter(filter_name,
-                                 self._tensor_filters[filter_name])
-
-    self._run_cli = curses_ui.CursesUI()
-    self._run_cli.register_command_handler(
-        "list_tensors",
-        analyzer.list_tensors,
-        analyzer.get_help("list_tensors"),
-        prefix_aliases=["lt"])
-    self._run_cli.register_command_handler(
-        "node_info",
-        analyzer.node_info,
-        analyzer.get_help("node_info"),
-        prefix_aliases=["ni"])
-    self._run_cli.register_command_handler(
-        "list_inputs",
-        analyzer.list_inputs,
-        analyzer.get_help("list_inputs"),
-        prefix_aliases=["li"])
-    self._run_cli.register_command_handler(
-        "list_outputs",
-        analyzer.list_outputs,
-        analyzer.get_help("list_outputs"),
-        prefix_aliases=["lo"])
-    self._run_cli.register_command_handler(
-        "print_tensor",
-        analyzer.print_tensor,
-        analyzer.get_help("print_tensor"),
-        prefix_aliases=["pt"])
+    self._run_cli = analyzer_cli.create_analyzer_curses_cli(
+        debug_dump, self._tensor_filters)
 
     # Get names of all dumped tensors.
     dumped_tensor_names = []
@@ -393,7 +363,15 @@ class LocalCLIDebugWrapperSession(framework.BaseDebugWrapperSession):
     return response
 
   def _run_info_handler(self, args, screen_info=None):
-    return self._run_info
+    output = self._run_info
+
+    # Add main menu.
+    menu = debugger_cli_common.Menu()
+    menu.append(debugger_cli_common.MenuItem("list_tensors", "lt"))
+    menu.append(debugger_cli_common.MenuItem("help", "help"))
+    output.annotations[debugger_cli_common.MAIN_MENU_KEY] = menu
+
+    return output
 
   def _run_handler(self, args, screen_info=None):
     """Command handler for "run" command during on-run-start."""
@@ -497,3 +475,70 @@ class LocalCLIDebugWrapperSession(framework.BaseDebugWrapperSession):
                                                     fetches,
                                                     feed_dict,
                                                     self._tensor_filters)
+
+  def invoke_node_stepper(self,
+                          node_stepper,
+                          restore_variable_values_on_exit=True):
+    """Overrides method in base class to implement interactive node stepper.
+
+    Args:
+      node_stepper: (stepper.NodeStepper) The underlying NodeStepper API object.
+      restore_variable_values_on_exit: (bool) Whether any variables whose values
+        have been altered during this node-stepper invocation should be restored
+        to their old values when this invocation ends.
+
+    Returns:
+      The same return values as the `Session.run()` call on the same fetches as
+        the NodeStepper.
+    """
+
+    stepper = stepper_cli.NodeStepperCLI(node_stepper)
+
+    # On exiting the node-stepper CLI, the finalize method of the node_stepper
+    # object will be called, ensuring that the state of the graph will be the
+    # same as if the stepping did not happen.
+    # TODO(cais): Perhaps some users will want the effect of the interactive
+    # stepping and value injection to persist. When that happens, make the call
+    # to finalize optional.
+    stepper_ui = curses_ui.CursesUI(
+        on_ui_exit=(node_stepper.restore_variable_values
+                    if restore_variable_values_on_exit else None))
+
+    stepper_ui.register_command_handler(
+        "list_sorted_nodes",
+        stepper.list_sorted_nodes,
+        stepper.arg_parsers["list_sorted_nodes"].format_help(),
+        prefix_aliases=["lt", "lsn"])
+    stepper_ui.register_command_handler(
+        "cont",
+        stepper.cont,
+        stepper.arg_parsers["cont"].format_help(),
+        prefix_aliases=["ct", "c"])
+    stepper_ui.register_command_handler(
+        "step",
+        stepper.step,
+        stepper.arg_parsers["step"].format_help(),
+        prefix_aliases=["st", "s"])
+    stepper_ui.register_command_handler(
+        "print_tensor",
+        stepper.print_tensor,
+        stepper.arg_parsers["print_tensor"].format_help(),
+        prefix_aliases=["pt"])
+    stepper_ui.register_command_handler(
+        "inject_value",
+        stepper.inject_value,
+        stepper.arg_parsers["inject_value"].format_help(),
+        prefix_aliases=["inject", "override_value", "override"])
+
+    # Register tab completion candidates.
+    stepper_ui.register_tab_comp_context([
+        "cont", "ct", "c", "pt", "inject_value", "inject", "override_value",
+        "override"
+    ], [str(elem) for elem in node_stepper.sorted_nodes()])
+    # TODO(cais): Tie up register_tab_comp_context to a single alias to shorten
+    # calls like this.
+
+    return stepper_ui.run_ui(
+        init_command="lt",
+        title="Node Stepper: " + self._run_description,
+        title_color="blue_on_white")

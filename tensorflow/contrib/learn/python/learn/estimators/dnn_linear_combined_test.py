@@ -63,7 +63,7 @@ class EmbeddingMultiplierTest(tf.test.TestCase):
             tf.SparseTensor(
                 values=['en', 'fr', 'zh'],
                 indices=[[0, 0], [1, 0], [2, 0]],
-                shape=[3, 1]),
+                dense_shape=[3, 1]),
     }
     labels = tf.constant([[0], [0], [0]], dtype=tf.int32)
     with self.assertRaisesRegexp(
@@ -94,12 +94,12 @@ class EmbeddingMultiplierTest(tf.test.TestCase):
             tf.SparseTensor(
                 values=['en', 'fr', 'zh'],
                 indices=[[0, 0], [1, 0], [2, 0]],
-                shape=[3, 1]),
+                dense_shape=[3, 1]),
         'wire':
             tf.SparseTensor(
                 values=['omar', 'stringer', 'marlo'],
                 indices=[[0, 0], [1, 0], [2, 0]],
-                shape=[3, 1]),
+                dense_shape=[3, 1]),
     }
     labels = tf.constant([[0], [0], [0]], dtype=tf.int32)
     model_ops = dnn_linear_combined._dnn_linear_combined_model_fn(
@@ -178,7 +178,7 @@ class DNNLinearCombinedClassifierTest(tf.test.TestCase):
       features['dummy_sparse_column'] = tf.SparseTensor(
           values=['en', 'fr', 'zh'],
           indices=[[0, 0], [0, 1], [60, 0]],
-          shape=[len(iris.target), 2])
+          dense_shape=[len(iris.target), 2])
       labels = tf.reshape(tf.constant(iris.target, dtype=tf.int32), [-1, 1])
       return features, labels
 
@@ -200,6 +200,7 @@ class DNNLinearCombinedClassifierTest(tf.test.TestCase):
 
     classifier.fit(input_fn=_input_fn, steps=100)
     scores = classifier.evaluate(input_fn=_input_fn, steps=100)
+    _assert_metrics_in_range(('accuracy', 'auc'), scores)
 
   def testTrainWithPartitionedVariables(self):
     """Tests training with partitioned variables."""
@@ -478,8 +479,9 @@ class DNNLinearCombinedClassifierTest(tf.test.TestCase):
       # For the case of binary classification, the 2nd column of "predictions"
       # denotes the model predictions.
       labels = tf.to_float(labels)
-      predictions = tf.slice(predictions, [0, 1], [-1, 1])
-      return tf.reduce_sum(tf.mul(predictions, labels))
+      predictions = tf.strided_slice(
+          predictions, [0, 1], [-1, 2], end_mask=1)
+      return tf.reduce_sum(tf.multiply(predictions, labels))
 
     classifier = tf.contrib.learn.DNNLinearCombinedClassifier(
         linear_feature_columns=[tf.contrib.layers.real_valued_column('x')],
@@ -929,7 +931,7 @@ class DNNLinearCombinedRegressorTest(tf.test.TestCase):
       return features, labels
 
     def _my_metric_op(predictions, labels):
-      return tf.reduce_sum(tf.mul(predictions, labels))
+      return tf.reduce_sum(tf.multiply(predictions, labels))
 
     regressor = tf.contrib.learn.DNNLinearCombinedRegressor(
         linear_feature_columns=[tf.contrib.layers.real_valued_column('x')],
@@ -982,7 +984,7 @@ class DNNLinearCombinedRegressorTest(tf.test.TestCase):
       return features, labels
 
     def _my_metric_op(predictions, labels):
-      return tf.reduce_sum(tf.mul(predictions, labels))
+      return tf.reduce_sum(tf.multiply(predictions, labels))
 
     regressor = tf.contrib.learn.DNNLinearCombinedRegressor(
         linear_feature_columns=[tf.contrib.layers.real_valued_column('x')],
